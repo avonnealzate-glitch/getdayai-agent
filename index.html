@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GetDayAI — Contact Tracker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #F0F2F5; min-height: 100vh; }
+.app { max-width: 540px; margin: 0 auto; padding: 0 0 2rem; }
+.header { background: #0A66C2; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+.header-logo { width: 36px; height: 36px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #0A66C2; flex-shrink: 0; }
+.header-info { flex: 1; }
+.header-title { color: white; font-size: 16px; font-weight: 700; }
+.header-sub { color: rgba(255,255,255,0.75); font-size: 11px; margin-top: 1px; }
+.header-btn { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; font-family: Arial; white-space: nowrap; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; background: white; border-bottom: 0.5px solid #E5E7EB; }
+.stat { background: #F8FAFC; border-radius: 8px; padding: 8px; text-align: center; }
+.stat-num { font-size: 22px; font-weight: 700; color: #0A66C2; }
+.stat-label { font-size: 10px; color: #6B7280; margin-top: 2px; }
+.stat.overdue .stat-num { color: #DC2626; }
+.stat.demo .stat-num { color: #059669; }
+.stat.warm .stat-num { color: #D97706; }
+.card { background: white; margin: 8px 12px; border-radius: 12px; border: 0.5px solid #E5E7EB; overflow: hidden; }
+.card-header { background: #0A66C2; color: white; padding: 10px 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+.form-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: #6B7280; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+.field input, .field select { width: 100%; border: 0.5px solid #D1D5DB; border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: Arial; outline: none; color: #111827; background: white; }
+.field input:focus, .field select:focus { border-color: #0A66C2; }
+.add-btn { background: #0A66C2; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; font-family: Arial; margin-top: 2px; }
+.add-btn:disabled { background: #9CA3AF; cursor: not-allowed; }
+.mic-field { position: relative; }
+.mic-field input { padding-right: 36px; }
+.mic-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; padding: 2px; line-height: 1; }
+.mic-btn.active { animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.success-bar { background: #D1FAE5; color: #065F46; padding: 10px 14px; font-size: 13px; font-weight: 700; display: none; border-top: 0.5px solid #A7F3D0; }
+.error-bar { background: #FEE2E2; color: #991B1B; padding: 10px 14px; font-size: 13px; display: none; border-top: 0.5px solid #FECACA; }
+.tab-row { display: flex; border-bottom: 0.5px solid #E5E7EB; }
+.tab-btn { flex: 1; padding: 10px; font-size: 12px; font-weight: 700; border: none; background: transparent; cursor: pointer; color: #6B7280; border-bottom: 2px solid transparent; font-family: Arial; }
+.tab-btn.active { color: #0A66C2; border-bottom-color: #0A66C2; background: #F0F7FF; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.contact-list { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; }
+.contact-item { border-radius: 8px; padding: 10px 12px; border-left: 3px solid #0A66C2; background: #F8FAFC; }
+.contact-item.overdue { background: #FEF2F2; border-left-color: #DC2626; }
+.contact-item.interested { background: #FFFBEB; border-left-color: #D97706; }
+.contact-item.booked { background: #F0FDF4; border-left-color: #059669; }
+.contact-name { font-size: 13px; font-weight: 700; color: #111827; }
+.contact-detail { font-size: 11px; color: #6B7280; margin-top: 2px; }
+.contact-badges { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 700; }
+.badge-overdue { background: #FEE2E2; color: #991B1B; }
+.badge-interested { background: #FEF3C7; color: #92400E; }
+.badge-booked { background: #D1FAE5; color: #065F46; }
+.badge-noreply { background: #F3F4F6; color: #6B7280; }
+.badge-notnow { background: #EDE9FE; color: #5B21B6; }
+.badge-source { background: #E0F2FE; color: #0369A1; }
+.badge-days { background: #FEE2E2; color: #991B1B; }
+.empty-state { padding: 24px; text-align: center; color: #9CA3AF; font-size: 13px; }
+.sheet-link { display: block; text-align: center; padding: 12px; font-size: 12px; color: #0A66C2; text-decoration: none; font-weight: 700; }
+.setup-card { background: white; margin: 20px 12px; border-radius: 12px; border: 0.5px solid #E5E7EB; padding: 20px; }
+.setup-title { font-size: 16px; font-weight: 700; color: #0A66C2; margin-bottom: 6px; }
+.setup-sub { font-size: 13px; color: #6B7280; margin-bottom: 16px; line-height: 1.6; }
+.setup-field { margin-bottom: 12px; }
+.setup-field label { display: block; font-size: 11px; font-weight: 700; color: #374151; margin-bottom: 4px; text-transform: uppercase; }
+.setup-field input { width: 100%; border: 0.5px solid #D1D5DB; border-radius: 8px; padding: 10px; font-size: 13px; font-family: Arial; outline: none; color: #111827; }
+.setup-field input:focus { border-color: #0A66C2; }
+.setup-btn { background: #0A66C2; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; font-family: Arial; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-logo">AI</div>
+    <div class="header-info">
+      <div class="header-title">GetDayAI Contact Tracker</div>
+      <div class="header-sub">Career & Technical Training Schools</div>
+    </div>
+    <button class="header-btn" onclick="showSettings()">Settings</button>
+  </div>
+
+  <div id="setup-screen" style="display:none">
+    <div class="setup-card">
+      <div class="setup-title">Welcome, Avonne!</div>
+      <div class="setup-sub">Enter your Google Sheets API Key. It saves privately in your browser — never visible to anyone else.</div>
+      <div class="setup-field">
+        <label>Google Sheets API Key</label>
+        <input type="password" id="setup-key" placeholder="AIzaSy..." />
+      </div>
+      <button class="setup-btn" onclick="saveSetup()">Save & Launch</button>
+    </div>
+  </div>
+
+  <div id="main-app" style="display:none">
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total</div></div>
+      <div class="stat warm"><div class="stat-num" id="stat-interested">—</div><div class="stat-label">Interested</div></div>
+      <div class="stat demo"><div class="stat-num" id="stat-demo">—</div><div class="stat-label">Demos</div></div>
+      <div class="stat overdue"><div class="stat-num" id="stat-overdue">—</div><div class="stat-label">Overdue</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span>Add new contact</span>
+        <span style="font-size:11px;opacity:0.8;">Tap 🎤 to speak each field</span>
+      </div>
+      <div class="form-body">
+        <div class="row2">
+          <div class="field"><label>First name *</label><div class="mic-field"><input autocomplete="off" name="nofill_a1" id="f-first" placeholder="Jane" /><button class="mic-btn" onclick="startVoice('f-first',this)">🎤</button></div></div>
+          <div class="field"><label>Last name *</label><div class="mic-field"><input autocomplete="off" name="nofill_b2" id="f-last" placeholder="Torres" /><button class="mic-btn" onclick="startVoice('f-last',this)">🎤</button></div></div>
+        </div>
+        <div class="field"><label>Title</label><div class="mic-field"><input autocomplete="off" name="nofill_c3" id="f-title" placeholder="Admissions Director" /><button class="mic-btn" onclick="startVoice('f-title',this)">🎤</button></div></div>
+        <div class="field"><label>School name *</label><div class="mic-field"><input autocomplete="off" name="nofill_d4" id="f-school" placeholder="Metro CDL Academy" /><button class="mic-btn" onclick="startVoice('f-school',this)">🎤</button></div></div>
+        <div class="row2">
+          <div class="field"><label>School type *</label>
+            <select id="f-type">
+              <option value="">Select...</option>
+              <option>CDL Schools</option>
+              <option>Healthcare Programs</option>
+              <option>HVAC &amp; Welding Schools</option>
+              <option>Coding Bootcamps</option>
+              <option>ESL &amp; Language Schools</option>
+              <option>Online Course Creators</option>
+            </select>
+          </div>
+          <div class="field"><label>State</label><div class="mic-field"><input autocomplete="off" name="nofill_e5" id="f-state" placeholder="GA" maxlength="2" /><button class="mic-btn" onclick="startVoice('f-state',this)">🎤</button></div></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Source *</label>
+            <select id="f-source">
+              <option value="">Select...</option>
+              <option>Cold Call / Phone</option>
+              <option>LinkedIn</option>
+              <option>Email</option>
+              <option>Referral</option>
+              <option>Social Media</option>
+            </select>
+          </div>
+          <div class="field"><label>Phone</label><div class="mic-field"><input autocomplete="off" name="nofill_f6" id="f-phone" placeholder="404-555-0101" /><button class="mic-btn" onclick="startVoice('f-phone',this)">🎤</button></div></div>
+        </div>
+        <div class="field"><label>Email</label><div class="mic-field"><input autocomplete="off" name="nofill_g7" id="f-email" placeholder="jane@school.com" type="email" /><button class="mic-btn" onclick="startVoice('f-email',this)">🎤</button></div></div>
+        <div class="field"><label>Notes</label><div class="mic-field"><input autocomplete="off" name="nofill_h8" id="f-notes" placeholder="Left voicemail, call back Thursday..." /><button class="mic-btn" onclick="startVoice('f-notes',this)">🎤</button></div></div>
+        <button class="add-btn" id="add-btn" onclick="addContact()">Add Contact</button>
+      </div>
+      <div class="success-bar" id="success-bar">Contact added successfully!</div>
+      <div class="error-bar" id="error-bar">Error adding contact. Check Settings and try again.</div>
+    </div>
+
+    <div class="card">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('overdue',this)">Overdue follow-ups</button>
+        <button class="tab-btn" onclick="switchTab('recent',this)">Recent contacts</button>
+      </div>
+      <div class="tab-panel active" id="tab-overdue">
+        <div class="contact-list" id="overdue-list"><div class="empty-state">Loading...</div></div>
+      </div>
+      <div class="tab-panel" id="tab-recent">
+        <div class="contact-list" id="recent-list"><div class="empty-state">Loading...</div></div>
+      </div>
+    </div>
+
+    <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1hbVFB1Q2ZgLVBBm6eo1VGouED_iuMEEk/edit" target="_blank">Open full tracker in Google Sheets →</a>
+
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1hbVFB1Q2ZgLVBBm6eo1VGouED_iuMEEk';
+const SHEET_NAME = 'Contact Tracker';
+let contacts = [];
+let activeRec = null;
+
+function getKey() { return localStorage.getItem('gdai_sheets_key') || ''; }
+
+function init() {
+  if (!getKey()) {
+    document.getElementById('setup-screen').style.display = 'block';
+    document.getElementById('main-app').style.display = 'none';
+  } else {
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    loadData();
+  }
+}
+
+function saveSetup() {
+  const k = document.getElementById('setup-key').value.trim();
+  if (!k) { alert('Please enter your Google Sheets API Key.'); return; }
+  localStorage.setItem('gdai_sheets_key', k);
+  init();
+}
+
+function showSettings() {
+  const k = prompt('Enter your Google Sheets API Key:', getKey());
+  if (k !== null && k.trim()) {
+    localStorage.setItem('gdai_sheets_key', k.trim());
+    loadData();
+  }
+}
+
+function startVoice(fieldId, btn) {
+  if (activeRec) { activeRec.stop(); activeRec = null; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { document.getElementById(fieldId).focus(); return; }
+  const rec = new SR();
+  rec.lang = 'en-US';
+  rec.continuous = false;
+  rec.interimResults = false;
+  activeRec = rec;
+  btn.classList.add('active');
+  btn.textContent = '🔴';
+  rec.onresult = (e) => {
+    let val = e.results[0][0].transcript.trim();
+    if (fieldId === 'f-state') {
+      const states = {georgia:'GA',florida:'FL',texas:'TX',california:'CA','new york':'NY',alabama:'AL',arizona:'AZ',arkansas:'AR',colorado:'CO',connecticut:'CT',delaware:'DE',idaho:'ID',illinois:'IL',indiana:'IN',iowa:'IA',kansas:'KS',kentucky:'KY',louisiana:'LA',maine:'ME',maryland:'MD',massachusetts:'MA',michigan:'MI',minnesota:'MN',mississippi:'MS',missouri:'MO',montana:'MT',nebraska:'NE',nevada:'NV','new hampshire':'NH','new jersey':'NJ','new mexico':'NM','north carolina':'NC','north dakota':'ND',ohio:'OH',oklahoma:'OK',oregon:'OR',pennsylvania:'PA','rhode island':'RI','south carolina':'SC','south dakota':'SD',tennessee:'TN',utah:'UT',vermont:'VT',virginia:'VA',washington:'WA','west virginia':'WV',wisconsin:'WI',wyoming:'WY'};
+      val = states[val.toLowerCase()] || val.substring(0,2).toUpperCase();
+    }
+    document.getElementById(fieldId).value = val;
+  };
+  rec.onerror = () => { document.getElementById(fieldId).focus(); };
+  rec.onend = () => { btn.classList.remove('active'); btn.textContent = '🎤'; activeRec = null; };
+  rec.start();
+}
+
+function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`; }
+
+async function addContact() {
+  const first = document.getElementById('f-first').value.trim();
+  const last  = document.getElementById('f-last').value.trim();
+  const school = document.getElementById('f-school').value.trim();
+  const type   = document.getElementById('f-type').value;
+  const source = document.getElementById('f-source').value;
+  if (!first || !last || !school || !type || !source) {
+    alert('Please fill in: First name, Last name, School name, School type, and Source.');
+    return;
+  }
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Adding...';
+  const today = new Date();
+  const followUp = new Date(today);
+  followUp.setDate(followUp.getDate() + 5);
+  const row = [
+    first, last,
+    document.getElementById('f-title').value.trim(),
+    school, type,
+    document.getElementById('f-state').value.trim().toUpperCase(),
+    source,
+    document.getElementById('f-phone').value.trim(),
+    document.getElementById('f-email').value.trim(),
+    '', fmt(today), fmt(followUp), '',
+    document.getElementById('f-notes').value.trim(),
+    'No Reply', 'No'
+  ];
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:P/append?valueInputOption=USER_ENTERED&key=${getKey()}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    document.getElementById('success-bar').style.display = 'block';
+    document.getElementById('success-bar').textContent = `${first} ${last} added! Follow-up set for ${fmt(followUp)}.`;
+    document.getElementById('error-bar').style.display = 'none';
+    document.getElementById('dictate-strip').className = 'dictate-strip';
+    ['f-first','f-last','f-title','f-school','f-type','f-state','f-source','f-phone','f-email','f-notes'].forEach(id => {
+      const el = document.getElementById(id); el.value = '';
+    });
+    setTimeout(() => { document.getElementById('success-bar').style.display = 'none'; }, 4000);
+    await loadData();
+  } catch(e) {
+    document.getElementById('error-bar').style.display = 'block';
+    document.getElementById('success-bar').style.display = 'none';
+    console.error(e);
+  }
+  btn.disabled = false;
+  btn.innerHTML = 'Add Contact';
+}
+
+async function loadData() {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A5:P300?key=${getKey()}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    contacts = (data.values || []).filter(r => r[0] || r[1] || r[3]).map(r => ({
+      firstName: r[0]||'', lastName: r[1]||'', title: r[2]||'',
+      school: r[3]||'', schoolType: r[4]||'', state: r[5]||'',
+      source: r[6]||'', dateContacted: r[10]||'',
+      followUpDate: r[11]||'', notes: r[13]||'',
+      response: r[14]||'', demoBooked: r[15]||''
+    }));
+    updateStats(); renderOverdue(); renderRecent();
+  } catch(e) { console.error(e); }
+}
+
+function updateStats() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('stat-total').textContent = contacts.length;
+  document.getElementById('stat-interested').textContent = contacts.filter(c => c.response === 'Interested').length;
+  document.getElementById('stat-demo').textContent = contacts.filter(c => c.demoBooked === 'Yes').length;
+  document.getElementById('stat-overdue').textContent = contacts.filter(c => {
+    if (!c.followUpDate || c.response !== 'No Reply') return false;
+    const fu = new Date(c.followUpDate); fu.setHours(0,0,0,0);
+    return fu < today;
+  }).length;
+}
+
+function renderOverdue() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const list = document.getElementById('overdue-list');
+  const items = contacts.filter(c => {
+    if (!c.followUpDate || c.response !== 'No Reply') return false;
+    const fu = new Date(c.followUpDate); fu.setHours(0,0,0,0);
+    return fu < today;
+  });
+  if (!items.length) { list.innerHTML = '<div class="empty-state">No overdue follow-ups. You\'re on top of it!</div>'; return; }
+  list.innerHTML = items.map(c => {
+    const fu = new Date(c.followUpDate); fu.setHours(0,0,0,0);
+    const days = Math.round((today - fu) / 86400000);
+    return `<div class="contact-item overdue"><div class="contact-name">${c.firstName} ${c.lastName}</div><div class="contact-detail">${[c.title,c.school].filter(Boolean).join(' · ')}</div><div class="contact-badges"><span class="badge badge-source">${c.source}</span><span class="badge badge-days">${days} day${days!==1?'s':''} overdue</span></div></div>`;
+  }).join('');
+}
+
+function renderRecent() {
+  const list = document.getElementById('recent-list');
+  const items = [...contacts].reverse().slice(0, 15);
+  if (!items.length) { list.innerHTML = '<div class="empty-state">No contacts yet. Add your first one above!</div>'; return; }
+  const bc = r => r==='Interested'?'badge-interested':r==='Booked Demo'?'badge-booked':r==='Not Now'?'badge-notnow':'badge-noreply';
+  const ic = r => r==='Interested'?'interested':r==='Booked Demo'?'booked':'';
+  list.innerHTML = items.map(c => `<div class="contact-item ${ic(c.response)}"><div class="contact-name">${c.firstName} ${c.lastName}</div><div class="contact-detail">${[c.title,c.school].filter(Boolean).join(' · ')}</div><div class="contact-badges"><span class="badge badge-source">${c.source}</span><span class="badge ${bc(c.response)}">${c.response||'No Reply'}</span></div></div>`).join('');
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+init();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
